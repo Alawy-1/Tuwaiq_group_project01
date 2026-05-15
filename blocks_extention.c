@@ -16,10 +16,10 @@ int flagR_merge = 3;
 struct PMD{
     char name[50];
     int b_count;
+    int fake_block_count;
     long b_size;
     long b_extra;
     unsigned short RN;
-
     
 };
 
@@ -62,6 +62,7 @@ void assign_random_positions(int total_blocks, int fake_count, int *is_random) {
 int split_metadata(char *filename_t, int partition, int fake_count){
 
     int total_count = partition + fake_count;
+    
     printf("Correct command -p\n");
     // int partition = atoi(partitions);
     printf("partition = %d\n", partition);
@@ -123,6 +124,7 @@ int split_metadata(char *filename_t, int partition, int fake_count){
     struct PMD metadata;
     strcpy(metadata.name, filename_t);
     metadata.b_count = partition;
+    metadata.fake_block_count = fake_count;
     metadata.b_size = partition_size;
     metadata.b_extra = remainder;
     metadata.RN = random_index;
@@ -324,11 +326,13 @@ int merge_all_blocks(char *pmd_filename, char *output_filename) {
     struct PMD metadata;
     fread(&metadata, sizeof(struct PMD), 1, fh);
     fclose(fh);
-    
+    int total_b_count = metadata.b_count + metadata.fake_block_count;
     printf("=== Merge ALL Blocks Mode (Including Random) ===\n");
     printf("Metadata loaded\n");
     printf("Original file: %s\n", metadata.name);
-    printf("Total blocks: %d\n", metadata.b_count);
+    printf("normal block count: %d\n", metadata.b_count);
+    printf("fake blocks: %d\n", metadata.fake_block_count);
+    printf("Total block count: %d\n", total_b_count);
     printf("Normal block size: %ld bytes\n", metadata.b_size);
     printf("Extra bytes (last normal block): %ld\n", metadata.b_extra);
     printf("Random block mask: %u (0x%X)\n", metadata.RN, metadata.RN);
@@ -337,7 +341,7 @@ int merge_all_blocks(char *pmd_filename, char *output_filename) {
     int last_normal_index = -1;
     int total_normal_blocks = 0;
     
-    for (int i = 0; i < metadata.b_count; i++) {
+    for (int i = 0; i < total_b_count; i++) {
         if (((metadata.RN >> i) & 1) == 0) {
             total_normal_blocks++;
             last_normal_index = i;  // Keep updating to get the last one
@@ -359,7 +363,7 @@ int merge_all_blocks(char *pmd_filename, char *output_filename) {
     
     printf("Merging all blocks:\n");
     
-    for (int i = 0; i < metadata.b_count; i++) {
+    for (int i = 0; i < total_b_count; i++) {
         char block_name[50];
         sprintf(block_name, "%s.%d", metadata.name, i + 1);
         
@@ -395,7 +399,7 @@ int merge_all_blocks(char *pmd_filename, char *output_filename) {
         }
         
         fclose(block);
-        printf("  → Merged %ld bytes\n", bytes_to_read);
+        printf("Merged %ld bytes\n", bytes_to_read);
         total_bytes_written += bytes_to_read;
     }
     
